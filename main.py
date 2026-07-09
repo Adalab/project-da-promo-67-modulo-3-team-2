@@ -19,35 +19,107 @@ password_sql = os.getenv("PASS_SQL")
 
 
 # =======================================================================
-# SCRIPT PRINCIPAL DE CARGA (ETL - LOAD)
+# SCRIPT PRINCIPAL DE CARGA (ETL)
 # =======================================================================
 
 # -----------------------------------------------------------------------
-# Carga inicial y división de datos
+# 1. EXTRACCIÓN (Extract)
 # -----------------------------------------------------------------------
-
 print("Cargando datos originales de Recursos Humanos...")
-df = pd.read_csv("src/files/hr_final.csv")
+df = pd.read_csv("src/files/hr.csv")
+
+
+# -----------------------------------------------------------------------
+# 2. TRANSFORMACIÓN (Transform)
+# -----------------------------------------------------------------------
+print("Iniciando la transformación y limpieza de datos...")
+
+
+# --- Bloque 1: Eliminación de columnas ---
+print("Eliminando columnas sin valor de estudio...")
+
+df.drop(columns=['EmployeeCount' , 'Over18', 'StandardHours'], inplace=True)
+
+
+# --- Bloque 2: Borrado de duplicados ---
+print("Borrando duplicados...")
+
+df = df.drop_duplicates(keep='first')
+
+
+# --- Bloque 3: Limpieza de textos ---
+print("Corrigiendo estétitca del texto...")
+
+df['JobRole'] = df['JobRole'].str.strip().str.title()
+df['BusinessTravel'] = df['BusinessTravel'].str.replace("_", " ")
+df['MaritalStatus'] = df['MaritalStatus'].replace('Marreid', 'Married')
+
+
+# --- Bloque 4: Gestión de nulos ---
+print("Tratando valores nulos con lógica de negocio...")
+
+# Creamos el mapa de JobRole -> Department usando solo las filas donde Department NO sea nulo (.notna())
+mapa_jobrole_dept = (
+    df[df['Department'].notna()]
+    .groupby('JobRole')['Department']
+    .agg(lambda x: x.mode()[0])
+    .to_dict()
+)
+
+# Creamos la máscara para localizar los NaN reales en la columna Department (.isna())
+mascara_nan_dept = df['Department'].isna()
+
+# Rellenamos los NaN de Department mapeando el JobRole correspondiente
+df.loc[mascara_nan_dept, 'Department'] = df.loc[mascara_nan_dept, 'JobRole'].map(mapa_jobrole_dept)
+
+# Gestión del resto de nulos a través de funciones
+print("Pasando el dataset a las funciones de sustitución general...")
+
+df_cat_limpio = fn.sustitucion_nulos_categoricas(df)
+df_bool_limpio = fn.sustitucion_nulos_booleanas(df_cat_limpio)
+df_limpio = fn.sustitucion_nulos_numericas(df_bool_limpio)
+
+
+# --- Bloque 5: Corrección de tipos de datos ---
+print("Tratando los tipos...")
+
+df_limpio['Age'] = df_limpio['Age'].astype('Int64')
+df_limpio['JobSatisfaction'] = df_limpio['JobSatisfaction'].astype('Int64')
+df_limpio['TrainingTimesLastYear'] = df_limpio['TrainingTimesLastYear'].astype('Int64')
+df_limpio['YearsWithCurrManager'] = df_limpio['YearsWithCurrManager'].astype('Int64')
+
+# Mapeos a booleanos aplicados sobre df_limpio
+df_limpio['Attrition'] = df_limpio['Attrition'].map({
+    'Yes': True,
+    'No': False
+}).astype('boolean')
+
+df_limpio['OverTime'] = df_limpio['OverTime'].map({
+    'Yes': True, 
+    'No': False
+}).astype('boolean')
+
+
+# --- Bloque 6: Preparación de datos para MySQL ---
 
 # Creación de tabla maestra de departamentos, educación y roles
-# -----------------------------------------------------------------------
 print("Convirtiendo columnas...")
 
-depto_unicos = df["Department"].unique()
+depto_unicos = df_limpio["Department"].unique()
 
 df_departamentos = pd.DataFrame({
     "DepartmentNumber": range(1, len(depto_unicos) + 1),
     "Department": depto_unicos  
 })
 
-roles_unicos = df["JobRole"].unique()
+roles_unicos = df_limpio["JobRole"].unique()
 
 df_roles = pd.DataFrame({
     "JobRoleNumber": range(1, len(roles_unicos) + 1),
     "JobRole": roles_unicos
 })
 
-roles_unicos = df["EducationField"].unique()
+roles_unicos = df_limpio["EducationField"].unique()
 
 df_educacion = pd.DataFrame({
     "EducationFieldNumber": range(1, len(roles_unicos) + 1),
@@ -71,7 +143,7 @@ df_nivel_educativo = pd.DataFrame({
 })
 
 # Se realiza merge para que el df original tenga una nueva columna llamada 'DepartmentNumber', 'JobRoleNumber'
-df_ampliado = pd.merge(df, df_departamentos, on="Department", how="left")
+df_ampliado = pd.merge(df_limpio, df_departamentos, on="Department", how="left")
 df_ampliado = pd.merge(df_ampliado, df_roles, on="JobRole", how="left")
 df_ampliado = pd.merge(df_ampliado, df_educacion, on="EducationField", how="left")
 
@@ -83,7 +155,6 @@ df_ampliado = df_ampliado.rename(columns={"Education": "EducationNumber"})
 
 
 # Se define los subconjuntos de columnas para división de datos en tablas
-# -----------------------------------------------------------------------
 print("Dividiendo columnas...")
 
 columnas_personales = [
@@ -101,8 +172,8 @@ columnas_financieras = [
     "EmployeeNumber", "MonthlyIncome", "MonthlyRate", "DailyRate", 
     "HourlyRate", "PercentSalaryHike", "StockOptionLevel", "PerformanceRating"]
 
-# Creamos los DataFrames independientes
-# -----------------------------------------------------------------------
+
+# Se crean los DataFrames independientes
 df_personales = df_ampliado[columnas_personales].copy()
 df_laborales = df_ampliado[columnas_laborales].copy()
 df_encuestas = df_ampliado[columnas_encuestas].copy()
@@ -112,9 +183,9 @@ df_financieros = df_ampliado[columnas_financieras].copy()
 print("¡Todos los DataFrames han sido divididos y normalizados con éxito!")
 
 
-# =======================================================================
-# PIPELINE DE CARGA EN MYSQL 
-# =======================================================================
+# -----------------------------------------------------------------------
+# 3. CARGA (Load)
+# -----------------------------------------------------------------------
 
 print("\n--- Iniciando proceso de carga en MySQL ---")
 
