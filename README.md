@@ -67,7 +67,7 @@ A partir de un conjunto de datos de recursos humanos, se estudian variables demo
 * Interpretación de los resultados obtenidos.
 * Conclusiones finales.
 
-**Automatización
+Automatización
 
 El proyecto incluye un proceso ETL automatizado desarrollado en Python que permite:
 
