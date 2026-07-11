@@ -2,8 +2,7 @@
 
 ## 📌 Descripción
 
-Este proyecto tiene como objetivo analizar los factores asociados a la rotación de empleados (*Employee Attrition*) mediante técnicas de análisis exploratorio de datos (EDA), estadística descriptiva y análisis de correlación.
-
+A partir de un conjunto de datos de recursos humanos, se desarrolla un proceso ETL automatizado para limpiar, transformar y almacenar la información en una base de datos MySQL. Posteriormente, se realiza un análisis exploratorio y estadístico para identificar los factores asociados a la rotación de empleados (Employee Attrition).
 A partir de un conjunto de datos de recursos humanos, se estudian variables demográficas, laborales, salariales y de satisfacción con el fin de identificar patrones que puedan ayudar a comprender qué características están relacionadas con el abandono de la empresa.
 
 ---
