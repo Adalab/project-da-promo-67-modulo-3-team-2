@@ -97,7 +97,7 @@ jupyter notebook
 
 5. Ejecutar los notebooks en orden:
 
-* 01_Limpieza
+* 01_EDA_transformación_limpieza
 * 02_Analisis
 * 03_Correlacion
 * 04_Resultados
@@ -152,8 +152,10 @@ Proyecto realizado como parte del Bootcamp de Data Analytics.
 
 Integrantes del equipo:
 
-* (Añadir nombres)
-
+* Ana Daza
+* Ángeles Toro
+* Beatriz San José
+* Teresa Díaz-Toledo
 ---
 
 ## 📄 Licencia
